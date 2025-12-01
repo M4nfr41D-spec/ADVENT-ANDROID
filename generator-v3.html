@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Adventkalender-Generator – mobilfreundlich</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- JSZip von CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+          integrity="sha512-Yq0wy2YQnQJUyC6W9XAEvQWbk0i/7Kv7Y9sH9WR3kXrIhOzvNo0gZ6Bqb8aPqC7yGoPiaoi5ixdD0/4yycZ8w=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 4px;
+      font-size: 1.4rem;
+    }
+    .hint {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+    .card {
+      max-width: 700px;
+      margin: 0 auto;
+      border-radius: 12px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      padding: 14px 14px 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    input[type="file"] {
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 0.85rem;
+    }
+    ul {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      padding-left: 18px;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    button {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid #22c55e;
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .status {
+      text-align: left;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #a5b4fc;
+      white-space: pre-line;
+      word-break: break-word;
+    }
+    code {
+      background: #111827;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 0.8em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Adventkalender‑Generator</h1>
+  <p class="hint">
+    Läuft komplett lokal im Browser – ideal auch am Handy. ✨
+  </p>
+
+  <div class="card">
+    <label for="files-input">
+      Wähle 1–24 Bilder aus (JPG oder PNG):
+    </label>
+    <input id="files-input" type="file" accept="image/jpeg,image/jpg,image/png" multiple>
+
+    <ul>
+      <li>Am PC: alle Bilder in einem Ordner, dann „Alle auswählen“ → öffnen.</li>
+      <li>Am Handy: mehrere Bilder in der Fotomediathek markieren (wenn möglich).</li>
+      <li>Die ersten Bilder werden als <code>day01.jpg</code>, <code>day02.jpg</code>, … gespeichert.</li>
+    </ul>
+
+    <button id="generate-btn">ZIP erstellen</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const TOTAL_DAYS = 24;
+    const filesInput = document.getElementById('files-input');
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('generate-btn');
+
+    function log(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error("Fehler beim Lesen einer Datei."));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    btn.addEventListener('click', async () => {
+      statusEl.textContent = "";
+
+      const fileList = filesInput.files;
+      if (!fileList || fileList.length === 0) {
+        log("Bitte mindestens 1 Bild auswählen.");
+        return;
+      }
+
+      let count = fileList.length;
+      let infoMsg = "";
+
+      if (count < TOTAL_DAYS) {
+        infoMsg =
+          "Hinweis: Du hast nur " + count + " Bild(er) ausgewählt.\\n" +
+          "Es werden nur Türchen 1–" + count + " befüllt.\\n" +
+          "Die restlichen Türchen haben dann im Kalender kein Bild.";
+      } else if (count > TOTAL_DAYS) {
+        infoMsg =
+          "Hinweis: Du hast " + count + " Bilder ausgewählt.\\n" +
+          "Es werden nur die ersten " + TOTAL_DAYS + " verwendet.";
+        count = TOTAL_DAYS;
+      }
+
+      // Dateien sortieren & ggf. auf count begrenzen
+      const files = Array.from(fileList)
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+        )
+        .slice(0, count);
+
+      btn.disabled = true;
+      log("Erstelle ZIP, bitte warten …\\n" + infoMsg);
+
+      try {
+        const zip = new JSZip();
+        const photosFolder = zip.folder("photos");
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const day = i + 1;
+          const dayStr = String(day).padStart(2, "0");
+          const targetName = "day" + dayStr + ".jpg";
+
+          log(
+            "Erstelle ZIP, bitte warten …\\n" +
+            infoMsg + "\\n\\n" +
+            "Füge hinzu: Türchen " + day + " → " + targetName +
+            " (Quelle: " + file.name + ")"
+          );
+
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          photosFolder.file(targetName, arrayBuffer);
+        }
+
+        const readmeText =
+          "Adventkalender-Fotos\\n" +
+          "Erzeugte Dateien: photos/day01.jpg bis photos/day" +
+          String(files.length).padStart(2, "0") + ".jpg\\n" +
+          "Türchen über " + files.length +
+          " hinaus haben im Adventkalender-HTML kein Bild.\\n";
+        zip.file("README.txt", readmeText);
+
+        const blob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "adventkalender_photos.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+
+        log(
+          "Fertig! ZIP wurde heruntergeladen.\\n" +
+          "Du kannst diese Seite geöffnet lassen – deine Bildauswahl bleibt erhalten, " +
+          "solange du den Tab nicht neu lädst."
+        );
+      } catch (err) {
+        console.error(err);
+        log("Fehler beim Erstellen des ZIPs:\\n" + (err && err.message ? err.message : String(err)));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
