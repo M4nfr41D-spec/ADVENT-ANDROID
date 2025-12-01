@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Adventkalender – Persönlicher Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- JSZip brauchen wir hier nicht mehr -->
+  <!-- Kein externes JS nötig -->
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -185,7 +185,7 @@
 
         log(
           "Fertig! Deine persönliche Kalender-Datei wurde heruntergeladen.\n" +
-          "Du kannst sie speichern, irgendwo hochladen oder als Datei verschicken."
+          "Du findest sie im Download-Ordner / Dateien-App."
         );
       } catch (err) {
         console.error(err);
@@ -513,7 +513,6 @@
     const STORAGE_KEY = "advent-opened-" + currentYear + "-personal";
 
     (function () {
-      const openedDays = loadOpenedDays();
       const todayInfoEl = document.getElementById("today-info");
       const grid = document.getElementById("calendar-grid");
 
@@ -522,6 +521,8 @@
       const modalTitle = document.getElementById("modal-title");
       const downloadLink = document.getElementById("download-link");
       const closeModalBtn = document.getElementById("close-modal-btn");
+
+      let openedDays = loadOpenedDays();
 
       todayInfoEl.textContent = "Heute ist: " + formatDate(now);
 
@@ -533,6 +534,7 @@
 
         const isUnlocked = isDoorUnlocked(day);
         const isOpened = openedDays.includes(day);
+        const hasImage = !!imageMap[day];
 
         if (!isUnlocked) {
           door.classList.add("locked");
@@ -544,18 +546,19 @@
           door.classList.add("opened");
         }
 
-        const hasImage = !!imageMap[day];
-
-        door.innerHTML = \`
-          <div class="door-number">\${day}</div>
-          <div class="door-label">Dezember</div>
-          <div class="door-status">
-            <span class="door-status-icon">\${!isUnlocked ? "🔒" : (isOpened ? "🎉" : (hasImage ? "🎁" : "✖️"))}</span>
-            <span class="door-status-text">
-              \${!isUnlocked ? "Noch gesperrt" : (isOpened ? "Geöffnet" : (hasImage ? "Bereit zum Öffnen" : "Kein Bild hinterlegt"))}
-            </span>
-          </div>
-        \`;
+        door.innerHTML =
+          '<div class="door-number">' + day + '</div>' +
+          '<div class="door-label">Dezember</div>' +
+          '<div class="door-status">' +
+            '<span class="door-status-icon">' +
+              (!isUnlocked ? "🔒" : (isOpened ? "🎉" : (hasImage ? "🎁" : "✖️"))) +
+            '</span>' +
+            '<span class="door-status-text">' +
+              (!isUnlocked ? "Noch gesperrt" :
+                (isOpened ? "Geöffnet" :
+                  (hasImage ? "Bereit zum Öffnen" : "Kein Bild hinterlegt"))) +
+            '</span>' +
+          '</div>';
 
         door.addEventListener("click", () => {
           if (!isDoorUnlocked(day)) {
@@ -611,8 +614,6 @@
         const unique = Array.from(new Set(days)).sort((a, b) => a - b);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(unique));
       }
-
-      const openedDays = loadOpenedDays();
 
       function markDoorOpened(day, doorEl) {
         if (!openedDays.includes(day)) {
