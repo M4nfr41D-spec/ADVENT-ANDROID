@@ -180,8 +180,9 @@
         const a = document.createElement("a");
         a.href = url;
         a.download = "adventkalender_personalisiert.html";
-        a.click();
-        URL.revokeObjectURL(url);
+     alert("Kalender-Datei wird jetzt heruntergeladen!");
+a.click();
+URL.revokeObjectURL(url);
 
         log(
           "Fertig! Deine persönliche Kalender-Datei wurde heruntergeladen.\n" +
